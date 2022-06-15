@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 
     if (argc <= 3)
     {
-        printf("usage: %s ip_address port_number backlog\n", basename(argv[0]));
+        // printf("usage: %s ip_address port_number backlog\n", basename(argv[0]));
         return 1;
     }
 
