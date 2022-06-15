@@ -14,3 +14,5 @@ include(CPack)
 
 
 add_executable(byteorder ${EXECUTION_SRC_DIR}/byteorder.c)
+add_executable(checkBacklog ${EXECUTION_SRC_DIR}/checkBacklog.c)
+add_executable(acceptSocket ${EXECUTION_SRC_DIR}/acceptSocket.c)
