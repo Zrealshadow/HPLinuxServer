@@ -37,7 +37,7 @@ int main(int argc, char const *argv[])
 
     printf("the tcp send buffer size after setting is %d\n", sendbuf);
 
-    if (connet(sock, (struct sockaddr *)&address, sizeof(address)) != -1)
+    if (connect(sock, (struct sockaddr *)&address, sizeof(address)) != -1)
     {
         char buffer[BUFFER_SIZE];
         memset(buffer, 'a', BUFFER_SIZE);
