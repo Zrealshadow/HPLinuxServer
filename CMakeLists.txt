@@ -20,7 +20,13 @@ SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 file(GLOB_RECURSE execute_files RELATIVE "${EXECUTION_SRC_DIR}" "${EXECUTION_SRC_DIR}/*.c")
 foreach(target_file IN LISTS execute_files)
+    message("generate target from file ${target_file}")
     get_filename_component(target_name ${target_file} NAME_WE)
     add_executable(${target_name} ${EXECUTION_SRC_DIR}/${target_file})
 endforeach()
+
+
+target_link_libraries(epoll_oneshot
+    pthread
+)
 
