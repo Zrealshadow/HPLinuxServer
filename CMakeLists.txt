@@ -6,7 +6,8 @@ enable_testing()
 
 SET(SRC_DIR_PATH ${PROJECT_SOURCE_DIR}/src)
 SET(EXECUTION_SRC_DIR ${SRC_DIR_PATH}/execution)
-
+SET(INCLUDE_SRC_DIR ${SRC_DIR_PATH}/include)
+SET(LIB_DIR_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
@@ -30,3 +31,11 @@ target_link_libraries(epoll_oneshot
     pthread
 )
 
+message("${EXECUTION_SRC_DIR}/timeout_server.cpp")
+# add timout_server
+add_executable(timeout_server "${EXECUTION_SRC_DIR}/timeout_server.cpp")
+
+target_include_directories(timeout_server PUBLIC ${INCLUDE_SRC_DIR})
+target_link_libraries(timeout_server
+    pthread
+)
