@@ -42,9 +42,12 @@ target_link_libraries(timeout_server
 
 
 add_executable(subprocess_chat_room "${EXECUTION_SRC_DIR}/subprocess_chat_room.cpp")
-
+target_include_directories(subprocess_chat_room PUBLIC ${INCLUDE_SRC_DIR})
 target_link_libraries(subprocess_chat_room
     pthread
     rt
 )
 
+
+add_executable(cgi_processpool_server "${EXECUTION_SRC_DIR}/cgi_processpool_server.cpp")
+target_include_directories(cgi_processpool_server PUBLIC ${INCLUDE_SRC_DIR})
