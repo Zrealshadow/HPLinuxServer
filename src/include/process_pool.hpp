@@ -24,8 +24,9 @@ public:
     process() : m_pid(-1) {}
 
 public:
-    pid_t m_pid;     // sub process Id
-    int m_pipefd[2]; // the pipeline between subprocess and main process
+    pid_t m_pid;         // sub process Id
+    int m_p2c_pipefd[2]; // the pipeline between subprocess and main process
+    int m_c2p_pipefd[2];
 };
 
 template <typename T>
@@ -134,7 +135,9 @@ processpool<T>::processpool(fd_t listenfd, int process_number) : m_listenfd(list
 
     for (int i = 0; i < process_number; i++)
     {
-        int ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_sub_process[i].m_pipefd);
+        int ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_sub_process[i].m_p2c_pipefd);
+        assert(ret == 0);
+        ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_sub_process[i].m_c2p_pipefd);
         assert(ret == 0);
 
         m_sub_process[i].m_pid = fork();
@@ -144,15 +147,16 @@ processpool<T>::processpool(fd_t listenfd, int process_number) : m_listenfd(list
         if (m_sub_process[i].m_pid == 0)
         {
             // sub_process
-            close(m_sub_process[i].m_pipefd[0]);
+            close(m_sub_process[i].m_p2c_pipefd[0]);
+            close(m_sub_process[i].m_c2p_pipefd[1]);
             m_idx = i;
             break;
         }
         else
         {
             // main prcoss
-            close(m_sub_process[i].m_pipefd[1]);
-            addfd(m_epollfd, m_sub_process[i].m_pipefd[0]);
+            close(m_sub_process[i].m_p2c_pipefd[1]);
+            close(m_sub_process[i].m_c2p_pipefd[0]);
             continue;
         }
     }
@@ -195,7 +199,7 @@ void processpool<T>::run_child()
     // setup the unified signal receiver
     setup_sig_pipe();
 
-    fd_t pipefd = m_sub_process[m_idx].m_pipefd[1];
+    fd_t pipefd = m_sub_process[m_idx].m_p2c_pipefd[1];
     addfd(m_epollfd, pipefd);
 
     epoll_event events[MAX_EVENT_NUMBER];
@@ -289,11 +293,12 @@ void processpool<T>::run_child()
                 // if some data input from conn
                 // T classtype process the logic
                 ret = users[sockfd].process();
+                printf("Process Finished ret %d\n", ret);
                 if (ret == 0)
                 {
-                    printf("Send to pipefd")
+                    printf("Send to %d process pipefd\n", m_idx);
                     // this process can be add another connection
-                    send(m_sub_process[i].m_pipefd[1], (char *)&m_idx, sizeof(m_idx), 0);
+                    send(m_sub_process[m_idx].m_c2p_pipefd[0], (char *)&m_idx, sizeof(m_idx), 0);
                 }
             }
             else
@@ -375,8 +380,8 @@ void processpool<T>::run_parent()
 
                 // don't understand the meaning of new_conn, it's seems like a struct{}{} in go
                 // just inform the subprocess that you should accept a new connection from listenfd
-                send(m_sub_process[i].m_pipefd[0], (char *)&new_conn, sizeof(new_conn), 0);
-
+                send(m_sub_process[i].m_p2c_pipefd[0], (char *)&new_conn, sizeof(new_conn), 0);
+                addfd(m_epollfd, m_sub_process[i].m_c2p_pipefd[1]);
                 printf("send request to child %d pid %d\n", i, m_sub_process[i].m_pid);
             }
             else if ((sockfd == sig_pipefd[0]) && (events[i].events & EPOLLIN))
@@ -415,7 +420,7 @@ void processpool<T>::run_parent()
                                     if (m_sub_process[i].m_pid == pid)
                                     {
                                         printf("[!!!!] Close the Resouce of Child PID %d\n", pid);
-                                        close(m_sub_process[i].m_pipefd[0]);
+                                        close(m_sub_process[i].m_p2c_pipefd[0]);
                                         m_sub_process[i].m_pid = -1;
                                     }
                                 }
@@ -463,7 +468,7 @@ void processpool<T>::run_parent()
                 // find the true
                 for (int i = 0; i < m_process_number; i++)
                 {
-                    if (events[i].data.fd == m_sub_process[i].m_pipefd[0])
+                    if (events[i].data.fd == m_sub_process[i].m_c2p_pipefd[1])
                     {
                         printf("Process %d can be used again\n", i);
                         m_used_process[i] = 0;

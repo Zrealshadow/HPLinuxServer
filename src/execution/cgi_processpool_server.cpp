@@ -37,58 +37,57 @@ int cgi_conn::process()
     int ret = -1;
     memset(m_buf, '\0', BUFFER_SIZE);
     // while (true)
+
+    // idx = m_read_idx;
+    // ret = recv(m_sockfd, m_buf + m_read_idx, BUFFER_SIZE - 1 - idx, 0);
+    ret = recv(m_sockfd, m_buf, BUFFER_SIZE - 1, 0);
+    if (ret < 0)
     {
-        // idx = m_read_idx;
-        // ret = recv(m_sockfd, m_buf + m_read_idx, BUFFER_SIZE - 1 - idx, 0);
-        ret = recv(m_sockfd, m_buf, BUFFER_SIZE - 1, 0);
-        if (ret < 0)
+        if (errno != EAGAIN)
         {
-            if (errno != EAGAIN)
-            {
-                // conn is closed
-                removefd(m_epollfd, m_sockfd);
-                return 0;
-            }
-            printf("ret < 0\n");
-
-            // break;
-        }
-        else if (ret == 0)
-        { // conn is closed
+            // conn is closed
             removefd(m_epollfd, m_sockfd);
-            printf("ret = 0 connection is closed by client\n");
             return 0;
-            // break;
         }
-        else
-        {
-            // ret <= 0, means connfd closed by client or some failure happened
-            // ret > 0, some data input
-            m_read_idx += ret;
-            printf("user content is : %s\n", m_buf);
-            for (; idx < m_read_idx; ++idx)
-            {
-                if ((idx >= 1) && (m_buf[idx - 1] == '\r') && (m_buf[idx] == '\n'))
-                {
-                    break;
-                }
-            }
+        printf("ret < 0\n");
 
-            if (idx == m_read_idx)
-            {
-                // need read more data
-                // continue;
-            }
-            // change '\r'  to '\0'
-            // before '\r' is a string of file path
-            m_buf[idx - 1] = '\0';
-            char *file_name = m_buf;
-
-            // echo this msg
-            send(m_sockfd, m_buf, BUFFER_SIZE, 0);
-        }
-        return 1;
+        // break;
     }
+    else if (ret == 0)
+    { // conn is closed
+        removefd(m_epollfd, m_sockfd);
+        printf("ret = 0 connection is closed by client\n");
+        return 0;
+        // break;
+    }
+    else
+    {
+        // ret <= 0, means connfd closed by client or some failure happened
+        // ret > 0, some data input
+        m_read_idx += ret;
+        printf("user content is : %s\n", m_buf);
+        for (; idx < m_read_idx; ++idx)
+        {
+            if ((idx >= 1) && (m_buf[idx - 1] == '\r') && (m_buf[idx] == '\n'))
+            {
+                break;
+            }
+        }
+
+        if (idx == m_read_idx)
+        {
+            // need read more data
+            // continue;
+        }
+        // change '\r'  to '\0'
+        // before '\r' is a string of file path
+        m_buf[idx - 1] = '\0';
+        char *file_name = m_buf;
+
+        // echo this msg
+        send(m_sockfd, m_buf, BUFFER_SIZE, 0);
+    }
+    return 1;
 }
 
 int main(int argc, char const *argv[])
@@ -113,7 +112,7 @@ int main(int argc, char const *argv[])
 
     ret = listen(listenfd, 5);
     assert(ret != -1);
-    processpool<cgi_conn> *pool = processpool<cgi_conn>::create(listenfd,2);
+    processpool<cgi_conn> *pool = processpool<cgi_conn>::create(listenfd, 2);
     if (pool)
     {
         pool->run();
