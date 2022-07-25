@@ -1,12 +1,12 @@
 #include "process_pool.hpp"
 
-class cgi_conn
+class echo_conn
 {
 private:
     /* data */
 public:
-    cgi_conn(/* args */){};
-    ~cgi_conn(){};
+    echo_conn(/* args */){};
+    ~echo_conn(){};
 
     void init(fd_t epollfd, fd_t sockfd, const sockaddr_in &client_addr);
     int process();
@@ -20,9 +20,9 @@ private:
     int m_read_idx;
 };
 
-// fd_t cgi_conn::m_epollfd = -1;
+// fd_t echo_conn::m_epollfd = -1;
 
-void cgi_conn::init(fd_t epollfd, fd_t sockfd, const sockaddr_in &client_addr)
+void echo_conn::init(fd_t epollfd, fd_t sockfd, const sockaddr_in &client_addr)
 {
     m_epollfd = epollfd;
     m_sockfd = sockfd;
@@ -31,7 +31,7 @@ void cgi_conn::init(fd_t epollfd, fd_t sockfd, const sockaddr_in &client_addr)
     m_read_idx = 0;
 }
 
-int cgi_conn::process()
+int echo_conn::process()
 {
     int idx = 0;
     int ret = -1;
@@ -112,7 +112,7 @@ int main(int argc, char const *argv[])
 
     ret = listen(listenfd, 5);
     assert(ret != -1);
-    processpool<cgi_conn> *pool = processpool<cgi_conn>::create(listenfd, 2);
+    processpool<echo_conn> *pool = processpool<echo_conn>::create(listenfd, 2);
     if (pool)
     {
         pool->run();
