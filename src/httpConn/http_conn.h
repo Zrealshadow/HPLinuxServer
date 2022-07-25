@@ -19,6 +19,8 @@
 #include <sys/mman.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <sys/epoll.h>
+#include <sys/uio.h>
 #include "locker.h"
 
 class http_conn
@@ -83,9 +85,9 @@ public:
 
     void process();
 
-    void read();
+    bool read();
 
-    void write();
+    bool write();
 
 private:
     void init();
@@ -102,7 +104,7 @@ private:
     HTTP_CODE parse_content(char *text);
     HTTP_CODE do_request();
 
-    char *get_line() {return  m_read_buf + m_start_line}
+    char *get_line() {return  m_read_buf + m_start_line;}
 
     LINE_STATUS parse_line();
 

@@ -2,6 +2,7 @@
 #define THREAD_POOL_H
 
 #include <list>
+#include "stdio.h"
 #include <cstdlib>
 #include "locker.h"
 
@@ -43,7 +44,7 @@ threadpool<T>::threadpool(int thread_number, int max_requests)
 
     for (int i = 0; i < m_thread_number; ++i)
     {
-        printf("create the %dth thread\n", i);
+        printf("create the %d th thread\n", i);
         if (pthread_create(m_threads + i, NULL, work, this) != 0)
         {
             // !=0 failed

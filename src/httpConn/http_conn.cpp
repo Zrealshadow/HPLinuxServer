@@ -1,4 +1,4 @@
-#include "http_zconn.h"
+#include "http_conn.h"
 
 const char *ok_200_title = "OK";
 const char *error_400_title = "Bad Request";
@@ -52,11 +52,11 @@ void modfd(int epollfd, int fd, int ev)
 int http_conn::m_user_count = 0;
 int http_conn::m_epollfd = -1;
 
-void http_conn::close_conn(bool real_close = true)
+void http_conn::close_conn(bool real_close)
 {
     if (real_close && (m_sockfd != -1))
     {
-        removefd(epollfd, m_sockfd);
+        removefd(m_epollfd, m_sockfd);
         m_sockfd = -1;
         m_user_count--;
     }
@@ -129,6 +129,7 @@ http_conn::LINE_STATUS http_conn::parse_line()
             return LINE_BAD;
         }
     }
+    return LINE_OPEN;
 }
 
 bool http_conn::read()
@@ -233,7 +234,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text)
     {
         // parse the header of connection
         text += 11;
-        tex += strspn(text, "\t");
+        text += strspn(text, "\t");
         if (strcasecmp(text, "keep-alive") == 0)
         {
             m_linger = true;
@@ -255,7 +256,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text)
     }
     else
     {
-        print("unkown header %s\n", text);
+        printf("unkown header %s\n", text);
     }
     return NO_REQUEST;
 }
@@ -335,7 +336,7 @@ http_conn::HTTP_CODE http_conn::do_request()
     strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
 
     // check the state of file
-    if (stat(m_real_file, &m_file_stat) < 0)
+    if (stat(m_real_file, &m_file_state) < 0)
     {
         return NO_RESOURCE;
     }
@@ -353,8 +354,8 @@ http_conn::HTTP_CODE http_conn::do_request()
     }
 
     int fd = open(m_real_file, O_RDONLY);
-    m_file_address = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    clsoe(fd);
+    m_file_address = (char *)mmap(0, m_file_state.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
     return FILE_REQUEST;
 }
 
@@ -388,7 +389,7 @@ bool http_conn::write()
     while (1)
     {
         temp = writev(m_sockfd, m_iv, m_iv_count);
-        if (tenp <= -1)
+        if (temp <= -1)
         {
             if (errno == EAGAIN)
             {
@@ -441,11 +442,13 @@ bool http_conn::add_status_line(int status, const char *title)
     return add_response("%s %d %s\r\n", "HTTP/1.1", status, title);
 }
 
-bool http_conn::add_header(int content_len)
+bool http_conn::add_headers(int content_len)
 {
-    add_content_length()
-        add_linger();
-    add_blank_line();
+    bool ret;
+    ret = add_content_length(content_len);
+    ret =  ret && add_linger();
+    ret = ret && add_blank_line();
+    return ret;
 }
 
 bool http_conn::add_content_length(int content_len)
@@ -482,7 +485,7 @@ bool http_conn::process_write(HTTP_CODE ret)
     case INTERNAL_ERROR:
     {
         add_status_line(500, error_500_title);
-        ad_headers(strlen(error_500_form));
+        add_headers(strlen(error_500_form));
         if (!add_content(error_500_form))
         {
             return false;
@@ -491,8 +494,8 @@ bool http_conn::process_write(HTTP_CODE ret)
     }
     case BAD_REQUEST:
     {
-        ad_status_line(400, error_400_title);
-        ad_headers(strlen(error_400_form));
+        add_status_line(400, error_400_title);
+        add_headers(strlen(error_400_form));
         if (!add_content(error_400_form))
         {
             return false;
@@ -501,8 +504,8 @@ bool http_conn::process_write(HTTP_CODE ret)
     }
     case NO_RESOURCE:
     {
-        ad_status_line(404, error_404_title);
-        ad_headers(strlen(error_404_form));
+        add_status_line(404, error_404_title);
+        add_headers(strlen(error_404_form));
         if (!add_content(error_404_form))
         {
             return false;
@@ -511,8 +514,8 @@ bool http_conn::process_write(HTTP_CODE ret)
     }
     case FORBIDDEN_REQUEST:
     {
-        ad_status_line(403, error_403_title);
-        ad_headers(strlen(error_403_form));
+        add_status_line(403, error_403_title);
+        add_headers(strlen(error_403_form));
         if(!add_content(error_403_form)){
             return false;
         }
@@ -520,14 +523,14 @@ bool http_conn::process_write(HTTP_CODE ret)
     }
     case FILE_REQUEST:
     {
-        ad_status_line(200, ok_200_title);
+        add_status_line(200, ok_200_title);
         if(m_file_state.st_size != 0){
             // if the request want get a file
             add_headers(m_file_state.st_size);
             m_iv[0].iov_base = m_write_buf;
             m_iv[0].iov_len = m_write_idx;
             m_iv[1].iov_base = m_file_address;
-            m_iv[1].iov_len = m_file_stat.st_size;
+            m_iv[1].iov_len = m_file_state.st_size;
             m_iv_count = 2;
             return true;
         } else {
@@ -557,7 +560,7 @@ void http_conn::process(){
     }
     bool write_ret = process_write(read_ret);
     if(!write_ret){
-        close_conn()
+        close_conn();
     }
     modfd(m_epollfd, m_sockfd, EPOLLOUT);
 }
