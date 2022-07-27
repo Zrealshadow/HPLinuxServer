@@ -77,6 +77,24 @@ related file
 
 Three class `sem` , `locker`, `cond` in this file can be reused.
 
-
-
 ### Note in Server Development
+
+Two effective event processing pattern: Reactor  and Proactor
+
+**Reactor**
+
+The main process is the IO processing unit. It doesn't do any logic processing. The only work the main process do is to listen whether there is some events in file descriptor. If some event happens, the main process will assign it to the sub-process to handle event.
+
+Take `epoll_wait` as an example, describe how Reactor works
+
+- Main thread registers EPOLLIN sockfd in epollfd
+- Main thread invokes `epoll_wait` to monitor any input data in sockfd
+- If any data is entered, epoll_wait will inform main thread, and the main thread will put this reading event into request queue.
+- The sub thread is waken up, read data from sockfd and process the request. Then  register writing-ready event in epollfd
+- epoll_wait inform main thread of the writing-reading event, and the main thread will put this writing-reading event into request queue.
+- Certain sub thread is waken up, get the event from request queue and write data into sockfd.
+
+**Proactor**
+
+The main different from **Reactor Pattern** is that all IO operators are handed over to the main thread and the linux kernel. Working thread is responsible for busniess logic. For every IO operator, we provide the buffer to linux kernel. When kernel finished IO operator, it will inform thread that the work is done.
+
